@@ -1,0 +1,6 @@
+__pycache__/
+*.py[cod]
+learner360.sqlite3
+*.sqlite3-journal
+.venv/
+.pytest_cache/

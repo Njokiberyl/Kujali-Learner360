@@ -1,0 +1,12 @@
+[project]
+name = "kujali-learner360"
+version = "0.1.0"
+description = "Evidence-linked learner support prototype using synthetic data"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+mcp = ["mcp>=1.0.0"]
+
+[tool.unittest]
+test-dir = "tests"
