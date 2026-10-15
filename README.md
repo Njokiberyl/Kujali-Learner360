@@ -1,54 +1,92 @@
 # Kujali Learner360
 
-Kujali Learner360 helps a public-school teacher review a fictional learner's quiz, attendance, and observation records across terms. It surfaces evidence-linked patterns and missing data, then prepares a teacher-only conversation draft. It does not diagnose, label, rank, or recommend a subject or career path.
+Kujali Learner360 is a teacher-support prototype for reviewing a fictional learner's quiz, attendance, and observation records across school terms. It surfaces evidence-linked patterns and missing information, then prepares a teacher-only conversation draft. It does not diagnose, label, rank, or recommend a subject or career path.
 
-**Everything in this repository is synthetic. Never enter identifiable student information.** This is a prototype, not a school records system or validated education product.
+**All records in this repository are synthetic. Never enter identifiable student information.** This is a prototype, not a school records system or a validated education product.
 
-## Run the local demo
+## Problem statement
 
-Requires Python 3.10+ and [Ollama for Windows, macOS, or Linux](https://ollama.com/download). Ollama serves the open-weight Qwen3 model locally.
+When learners move between teachers or school terms, assessment, attendance, and observation records can be scattered. A single score or a remembered impression may not show a learner's history. Teachers need a way to review available evidence, see what is missing, and prepare a supportive conversation without turning a pattern into a fixed label.
 
-1. Install Ollama and open a new PowerShell window.
-2. From this repository folder, run the setup script. It installs app dependencies, downloads the model, and starts the site:
+## Solution overview
+
+The demo brings one fictional learner's records into a term-by-term timeline. Ordinary Python calculates first-to-latest patterns and marks missing data; findings retain their source IDs. An optional AI agent prepares a plain-language draft and can consult a public education reference. A named teacher must review and approve, edit, or reject the draft. The tool supports teacher judgment; it does not make learner decisions.
+
+## Target users
+
+The intended users are upper-primary public-school teachers who need to review a learner's evidence across terms, especially when records come from different teachers. The prototype is designed for a teacher preparing a supportive conversation. It is not intended for autonomous use by learners, guardians, or school administrators.
+
+## Architecture
+
+The local Python web app displays synthetic learner records and teacher review controls. Deterministic Python analyses records, while SQLite stores MCP activity and teacher decisions. The optional AI flow uses Pydantic AI with a locally served Qwen3 model through Ollama and connects to two MCP servers. See [ARCHITECTURE.md](ARCHITECTURE.md) for the flow diagram and component details.
+
+### Agent architecture
+
+1. A teacher starts a review in the local web app.
+2. Pydantic AI orchestrates the review using Qwen3 served by Ollama.
+3. The agent calls the Kujali MCP tools to retrieve fictional records, calculate patterns, and prepare a sourced draft.
+4. When useful, it can call the community MCP Fetch server for a general public education reference. Learner-specific information must not be sent to Fetch.
+5. Tool activity is recorded in SQLite. The named teacher then edits, approves, or rejects the draft.
+
+The agent drafts language only. Python calculates scores and trends; the agent cannot approve or save a teacher decision.
+
+## MCP implementation and tools/servers
+
+The project implements an MCP server in `mcp_server.py` with three tools, restricted to the synthetic sample learner:
+
+- `get_learner_history` retrieves term records and evidence IDs.
+- `analyse_learning_patterns` calculates trends deterministically and identifies missing values.
+- `draft_teacher_review` produces a sourced, plain-language teacher conversation draft.
+
+The optional community [MCP Fetch server](https://github.com/modelcontextprotocol/servers/tree/main/src/fetch) retrieves public webpages for general education context. It is not given learner-specific content. Pydantic AI connects to both servers over local standard input/output (stdio). Inputs, outputs, status, and timestamps for tool calls are written to a local SQLite audit log.
+
+## Human-in-the-loop workflow
+
+The agent returns a draft for a named teacher to review. The teacher must enter their name and choose **Approve draft**, **Save edited**, or **Reject**. The agent cannot approve, save, or share the decision. The tool calls and teacher decision are logged locally. No guardian-sharing feature is included.
+
+## Technology stack
+
+- Python 3.10 or later and its built-in HTTP server
+- Pydantic AI for agent orchestration
+- Qwen3 `1.7b` served locally by Ollama
+- MCP Python SDK and the community MCP Fetch server
+- SQLite for local tool and teacher-decision audit records
+- HTML, CSS, and JavaScript for the interface
+
+## Setup and installation
+
+The full agent demo requires Python 3.10+, [Ollama](https://ollama.com/download), and an internet connection for installing dependencies and downloading the model. From the repository folder in PowerShell:
 
 ```powershell
 .\run_demo.ps1
 ```
 
-If PowerShell reports that scripts are disabled, run the three commands shown in `run_demo.ps1` directly in PowerShell instead.
+The script installs the optional agent dependencies, downloads `qwen3:1.7b`, and starts the local web app. If PowerShell blocks the script, inspect `run_demo.ps1` and run its commands individually. The app is local to your computer; keep the terminal open while using it.
 
-Open <http://127.0.0.1:8000>. Keep the terminal open. In the Teacher review card, select **Run full AI + MCP review**. A run can take a minute on a small computer.
+## Usage instructions
 
-The agent uses Pydantic AI to coordinate two MCP servers: the three tools in this repository and the community MCP Fetch server. The Fetch server is used only for a public, general-education reference; learner records are not sent to it. Set `LEARNER360_MODEL` to choose another Ollama model, or `OLLAMA_BASE_URL` to change the local endpoint.
+1. Open <http://127.0.0.1:8000> after the setup script starts the server.
+2. Use **Run full AI + MCP review** for the optional agent workflow. This requires Ollama to be installed and running; the first review may take a while.
+3. Read the sources and draft in the Teacher review card.
+4. Enter the teacher's name and choose **Approve draft**, **Save edited**, or **Reject**.
 
-## Teacher approval
+For a deterministic preview without installing Ollama or agent extras, run `py app.py` and choose **Create a deterministic draft**. This preview does not run the AI/MCP flow.
 
-The agent returns a draft for a teacher to review. It cannot approve, save, or share the draft. A teacher must enter their name and choose **Approve draft**, **Save edited**, or **Reject**. Tool calls and teacher decisions are stored in a local SQLite audit log with inputs, outputs, timestamps, and the named reviewer.
+## Limitations
 
-The MCP server exposes:
+- The sample has one fictional learner and four terms; it is not a cohort and cannot show comparative ranking.
+- Trends compare the first and latest available values and may miss an intervening change.
+- The AI/MCP flow has not yet been verified end to end on every computer. See [EVALS.md](EVALS.md): agent checks are marked **Not run** until a real local run is inspected.
+- The prototype has no authentication and is for local demonstration with synthetic data only. Do not expose it to the public internet or enter real student records.
+- It does not diagnose, label, rank learners, recommend pathways, or contact guardians. The prototype has not established educational validity or outcomes in real schools.
 
-- `get_learner_history`: retrieve the fictional learner's term records and evidence IDs.
-- `analyse_learning_patterns`: calculate trends deterministically and identify missing values.
-- `draft_teacher_review`: produce a sourced, plain-language teacher conversation draft.
+## Future improvements
 
-## Documentation
+- Run and document the full Qwen3 and MCP workflow on a supported computer, including review of its SQLite audit log.
+- Evaluate with educators using synthetic or properly de-identified examples, and improve trend analysis so intermediate changes are visible.
+- Improve accessibility, setup guidance, and support for additional synthetic scenarios.
+- Before any real-world pilot, complete privacy, security, safeguarding, and educational validation with the relevant schools and communities.
 
-- [ARCHITECTURE.md](ARCHITECTURE.md): agent flow, MCP servers, and human review gate.
-- [EVALS.md](EVALS.md): eight deterministic evaluation tasks and an unresolved limitation.
-- [SUBMISSION.md](SUBMISSION.md): competition description.
+## Other: evaluation and licence
 
-## Local deterministic demo
-
-To view the sample timeline without the agent extras or Ollama, run `py app.py` and use **Create a deterministic draft**. The agent button needs Ollama running and the optional dependencies above.
-
-## Known limits
-
-- The sample dataset contains one fictional learner; it is not a cohort and does not show comparative ranking.
-- The trend calculation compares first and latest available values; it can miss an intermediate change.
-- The built-in HTTP server has no authentication. It is suitable only for local demonstration with synthetic data. Do not expose it to the public internet.
-- Open-weight model quality, tool use, runtime, and device compatibility have not yet been verified on every computer. Teacher review is required.
-- No real student records, guardian communications, diagnoses, or pathway recommendations are supported.
-
-## License
-
-MIT. See [LICENSE](LICENSE).
+The deterministic prototype has eight recorded evaluation tasks; they do not validate the AI/MCP agent. See [EVALS.md](EVALS.md) for results and checks still to run. The code is released under the [MIT License](LICENSE).
