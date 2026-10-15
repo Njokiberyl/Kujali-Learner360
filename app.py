@@ -67,6 +67,11 @@ def init_db() -> None:
           id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL,
           reviewer TEXT NOT NULL, decision TEXT NOT NULL, text TEXT NOT NULL,
           evidence_json TEXT NOT NULL)""")
+        db.execute("""CREATE TABLE IF NOT EXISTS tool_events (
+          id INTEGER PRIMARY KEY AUTOINCREMENT, run_id TEXT NOT NULL,
+          server_name TEXT NOT NULL, tool_name TEXT NOT NULL,
+          input_json TEXT NOT NULL, output_json TEXT NOT NULL, status TEXT NOT NULL,
+          started_at TEXT NOT NULL, finished_at TEXT NOT NULL)""")
 
 
 def json_response(handler: BaseHTTPRequestHandler, status: int, value: object) -> None:
@@ -94,6 +99,14 @@ class Handler(BaseHTTPRequestHandler):
                 db.row_factory = sqlite3.Row
                 rows = db.execute("SELECT id,created_at,reviewer,decision,text FROM reviews ORDER BY id DESC LIMIT 20").fetchall()
             return json_response(self, 200, [dict(row) for row in rows])
+        if path == "/api/tool-events":
+            with sqlite3.connect(DB_PATH) as db:
+                db.row_factory = sqlite3.Row
+                rows = db.execute(
+                    """SELECT run_id,server_name,tool_name,input_json,output_json,status,started_at,finished_at
+                       FROM tool_events ORDER BY id DESC LIMIT 40"""
+                ).fetchall()
+            return json_response(self, 200, [dict(row) for row in rows])
         if path in ("/", "/index.html"):
             body = (ROOT / "static" / "index.html").read_bytes()
             self.send_response(200)
@@ -114,11 +127,22 @@ class Handler(BaseHTTPRequestHandler):
             return json_response(self, 400, {"error": "Invalid JSON"})
         if path == "/api/draft":
             return json_response(self, 200, draft_review())
+        if path == "/api/agent/run":
+            try:
+                from agent import run_agent
+                return json_response(self, 200, run_agent())
+            except Exception as exc:
+                return json_response(self, 503, {
+                    "error": "The local agent could not finish. Check that its packages and Ollama model are ready.",
+                    "detail": str(exc)[:500],
+                })
         if path == "/api/decision":
             decision = payload.get("decision")
             if decision not in ("approved", "edited", "rejected"):
                 return json_response(self, 400, {"error": "Choose approve, edit, or reject."})
-            reviewer = str(payload.get("reviewer", "Teacher")).strip()[:80] or "Teacher"
+            reviewer = str(payload.get("reviewer", "")).strip()[:80]
+            if not reviewer:
+                return json_response(self, 400, {"error": "Enter the name of the teacher making this decision."})
             text = str(payload.get("text", ""))[:10_000]
             if not text.strip():
                 return json_response(self, 400, {"error": "A review draft is required."})

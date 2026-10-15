@@ -1,17 +1,28 @@
 # Architecture
 
-## Local prototype flow
+## Agent run
 
 ```text
-Browser UI → Python HTTP handler → deterministic record analysis → evidence-linked draft
-                                                   ↓
-                                         SQLite review audit log
+Teacher starts review
+        ↓
+Pydantic AI orchestration + local Qwen3 open-weight model (Ollama)
+        ├── Kujali MCP server: history → deterministic patterns → sourced teacher draft
+        └── Borrowed MCP Fetch server: public general-education reference
+        ↓
+Tool inputs, outputs, status, and timestamps are written to SQLite
+        ↓
+Named teacher edits, approves, or rejects the draft; decision and evidence are logged
 ```
 
-`GET /api/learner` returns the synthetic record timeline and analysis. `POST /api/draft` prepares the evidence-linked teacher conversation. `POST /api/decision` accepts only `approved`, `edited`, or `rejected` and writes the reviewer's name, decision, draft text, timestamp, and evidence snapshot to SQLite. `GET /api/reviews` displays recent decisions.
+The web app uses a fictional learner and the built-in Python HTTP server. The agent sends no learner record to the borrowed Fetch server; it is asked to consult only a public, general-education page. The local Qwen model performs language drafting. Ordinary Python calculates all scores and trends.
 
-The workflow keeps arithmetic in ordinary Python and requires a teacher decision before the draft is logged. A model cannot approve a profile, and the prototype does not diagnose or label a learner.
+## MCP servers
 
-## Next engineering steps
+- **Built here:** `mcp_server.py` exposes `get_learner_history`, `analyse_learning_patterns`, and `draft_teacher_review`. The tools are limited to synthetic `SAMPLE-01`. The draft is a proposed teacher conversation, not a diagnosis or pathway decision.
+- **Borrowed:** [`mcp-server-fetch`](https://github.com/modelcontextprotocol/servers/tree/main/src/fetch) retrieves and converts public webpages. Using this maintained server avoids writing and maintaining an HTML-fetching/parser tool. The agent is instructed to send it no learner-specific content.
 
-For a challenge-ready version, replace the embedded fixture with a validated import format and authorization model; define a versioned MCP server for history retrieval, pattern analysis, and draft preparation; then add an open-weights model only for language drafting with strict evidence grounding. Any external MCP server should provide a concrete capability such as standards lookup, with source attribution and failure handling. Run privacy, security, accessibility, and teacher usability reviews before handling real data.
+Pydantic AI coordinates the multi-step task and connects to both servers over local stdio. Ollama serves Qwen3 locally through its OpenAI-compatible API. A run has a unique ID; every MCP call records the server, tool, input, output, status, and timestamps.
+
+## Human review and limits
+
+The model cannot approve or save a teacher decision. A teacher must enter their name and choose approve, edit, or reject before a review is recorded. The app has no guardian-sharing function, learner labels, class ranking, or subject/career recommendation. It contains no authentication and is only a synthetic-data prototype; never use real learner records or expose it publicly without a security review.

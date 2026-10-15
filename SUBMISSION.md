@@ -1,0 +1,11 @@
+# Competition description — Education track
+
+Kujali Learner360 is a teacher-support prototype for an upper-primary public-school workflow: reviewing a learner's evidence across terms when assessment, attendance, and observation records are spread across different teachers. A single low score or a remembered impression can be misleading. The demo brings a fictional learner's records into one timeline, calculates first-to-latest patterns with ordinary Python, preserves missing data and differing teacher observations, and keeps source IDs beside each finding.
+
+By keeping calculations reproducible and each claim traceable, the teacher can see what the records support, what is missing, and where observations disagree. The system flags evidence for review and offers questions for a supportive conversation. It treats a pattern as information to discuss with a learner and guardian, not as a fixed trait. This makes the learner's documented history easier to carry forward when they move between teachers and school terms.
+
+The agent uses Pydantic AI to coordinate a multi-step review with a locally served Qwen3 open-weight model through Ollama. It calls three tools on the Kujali MCP server to retrieve the synthetic history, analyse the records, and draft a plain-language teacher conversation. It can also call the community MCP Fetch server for public, general-education context. No learner record is sent to that borrowed server. Inputs, outputs, status, and timestamps for each MCP call are stored in a local audit log.
+
+The agent does not diagnose, assign a track, label or rank a learner, or recommend a subject or career path. It returns a teacher-only draft and cannot approve, save, or share it. A named teacher must review the sources and choose approve, edit, or reject before a decision is recorded. The prototype has no guardian-sharing feature and contains no real student information.
+
+The current demonstration uses one fictional learner and four term records. It illustrates how evidence can be reviewed over time; it does not establish educational validity or prove an outcome for a real school. Its intended use is to help a teacher prepare a sourced conversation, while the learner, teacher, and guardian remain central to any support decision. The current scope is a local prototype, not a deployed school information system.
