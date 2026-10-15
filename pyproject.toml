@@ -6,7 +6,11 @@ requires-python = ">=3.10"
 dependencies = []
 
 [project.optional-dependencies]
-mcp = ["mcp>=1.0.0"]
+mcp = ["mcp>=1.29.0,<2"]
+agent = [
+  "pydantic-ai-slim[mcp,openai]>=1.0.0",
+  "mcp-server-fetch>=0.6.3,<1",
+]
 
 [tool.unittest]
 test-dir = "tests"
